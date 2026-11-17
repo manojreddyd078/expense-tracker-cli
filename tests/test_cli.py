@@ -17,3 +17,12 @@ def test_cli_parser_accepts_database_path():
     args = build_parser().parse_args(["--db", "custom.db"])
 
     assert str(args.db) == "custom.db"
+
+
+def test_cli_help_does_not_create_database(tmp_path):
+    database_path = tmp_path / "help-only.db"
+
+    with pytest.raises(SystemExit):
+        main(["--db", str(database_path), "--help"])
+
+    assert not database_path.exists()

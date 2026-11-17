@@ -4,6 +4,8 @@ import argparse
 import os
 from pathlib import Path
 
+from expense_tracker.database import initialize_schema
+
 
 DB_ENV_VAR = "EXPENSE_TRACKER_DB"
 DEFAULT_DB_PATH = Path.cwd() / "data" / "expenses.db"
@@ -34,8 +36,8 @@ def resolve_db_path(cli_path: Path | None = None) -> Path:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Parse CLI arguments and return a successful status."""
+    """Parse CLI arguments, initialize the database, and return success."""
     args = build_parser().parse_args(argv)
-    resolve_db_path(args.db)
+    initialize_schema(resolve_db_path(args.db))
     return 0
 
