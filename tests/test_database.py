@@ -1,6 +1,11 @@
 import sqlite3
+from decimal import Decimal
+
+import pytest
 
 from expense_tracker.database import database_connection, initialize_schema
+from expense_tracker.database import insert_expense
+from expense_tracker.expense import Expense
 
 
 def test_initialize_schema_creates_parent_and_expenses_table(tmp_path):
@@ -49,3 +54,55 @@ def test_database_connection_closes_connection(tmp_path):
         pass
     else:
         raise AssertionError("database connection was not closed")
+
+
+def test_insert_expense_returns_id_and_stores_validated_values(tmp_path):
+    database_path = tmp_path / "tracker.db"
+    initialize_schema(database_path)
+    expense = Expense(Decimal("19.95"), "food", "Dinner", "2026-11-19")
+
+    expense_id = insert_expense(database_path, expense)
+
+    assert expense_id == 1
+    with sqlite3.connect(database_path) as connection:
+        row = connection.execute(
+            "SELECT id, amount_cents, category, description, date "
+            "FROM expenses WHERE id = ?",
+            (expense_id,),
+        ).fetchone()
+    assert row == (1, 1995, "food", "Dinner", "2026-11-19")
+
+
+def test_invalid_expense_is_rejected_before_database_write(tmp_path):
+    database_path = tmp_path / "tracker.db"
+    initialize_schema(database_path)
+
+    try:
+        Expense("0.00", "food", "Not stored", "2026-11-19")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("invalid expense was accepted")
+
+    with sqlite3.connect(database_path) as connection:
+        count = connection.execute("SELECT COUNT(*) FROM expenses").fetchone()[0]
+    assert count == 0
+
+
+def test_insert_database_error_rolls_back(tmp_path):
+    database_path = tmp_path / "tracker.db"
+    initialize_schema(database_path)
+    expense = Expense("2.50", "test", "Rollback", "2026-11-19")
+
+    with sqlite3.connect(database_path) as connection:
+        connection.execute(
+            "CREATE TRIGGER reject_expenses BEFORE INSERT ON expenses "
+            "BEGIN SELECT RAISE(ABORT, 'test failure'); END"
+        )
+
+    with pytest.raises(sqlite3.IntegrityError):
+        insert_expense(database_path, expense)
+
+    with sqlite3.connect(database_path) as connection:
+        count = connection.execute("SELECT COUNT(*) FROM expenses").fetchone()[0]
+    assert count == 0

@@ -5,6 +5,8 @@ from pathlib import Path
 import sqlite3
 from collections.abc import Iterator
 
+from expense_tracker.expense import Expense
+
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS expenses (
@@ -40,3 +42,30 @@ def initialize_schema(path: str | Path) -> None:
     with database_connection(path) as connection:
         connection.execute(SCHEMA_SQL)
         connection.commit()
+
+
+def insert_expense(path: str | Path, expense: Expense) -> int:
+    """Insert a validated expense and return its generated database ID."""
+    if not isinstance(expense, Expense):
+        raise TypeError("expense must be an Expense instance")
+
+    with database_connection(path) as connection:
+        try:
+            cursor = connection.execute(
+                """
+                INSERT INTO expenses
+                    (amount_cents, category, description, date)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    expense.amount_cents,
+                    expense.category,
+                    expense.description,
+                    expense.date_iso,
+                ),
+            )
+            connection.commit()
+            return int(cursor.lastrowid)
+        except sqlite3.Error:
+            connection.rollback()
+            raise
