@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from pathlib import Path
 import sqlite3
 from collections.abc import Iterator
+from decimal import Decimal
 
 from expense_tracker.expense import Expense
 
@@ -69,3 +70,35 @@ def insert_expense(path: str | Path, expense: Expense) -> int:
         except sqlite3.Error:
             connection.rollback()
             raise
+
+
+def _expense_from_row(row: tuple[object, ...]) -> Expense:
+    """Convert a database row to the validated domain model."""
+    return Expense(
+        amount=Decimal(row[1]) / 100,
+        category=str(row[2]),
+        description=str(row[3]),
+        date=str(row[4]),
+        id=int(row[0]),
+    )
+
+
+def get_expense(path: str | Path, expense_id: int) -> Expense | None:
+    """Return an expense by ID, or ``None`` when it does not exist."""
+    with database_connection(path) as connection:
+        row = connection.execute(
+            "SELECT id, amount_cents, category, description, date "
+            "FROM expenses WHERE id = ?",
+            (expense_id,),
+        ).fetchone()
+    return None if row is None else _expense_from_row(row)
+
+
+def list_expenses(path: str | Path) -> list[Expense]:
+    """Return all expenses ordered by ISO date, then ID."""
+    with database_connection(path) as connection:
+        rows = connection.execute(
+            "SELECT id, amount_cents, category, description, date "
+            "FROM expenses ORDER BY date ASC, id ASC"
+        ).fetchall()
+    return [_expense_from_row(row) for row in rows]

@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 
 from expense_tracker.database import database_connection, initialize_schema
-from expense_tracker.database import insert_expense
+from expense_tracker.database import get_expense, insert_expense, list_expenses
 from expense_tracker.expense import Expense
 
 
@@ -106,3 +106,51 @@ def test_insert_database_error_rolls_back(tmp_path):
     with sqlite3.connect(database_path) as connection:
         count = connection.execute("SELECT COUNT(*) FROM expenses").fetchone()[0]
     assert count == 0
+
+
+def test_get_expense_returns_record_with_formatted_amount(tmp_path):
+    database_path = tmp_path / "tracker.db"
+    initialize_schema(database_path)
+    expense_id = insert_expense(
+        database_path,
+        Expense("19.95", "food", "Dinner", "2026-11-20"),
+    )
+
+    expense = get_expense(database_path, expense_id)
+
+    assert expense is not None
+    assert expense.id == expense_id
+    assert expense.amount_cents == 1995
+    assert expense.amount_formatted == "$19.95"
+
+
+def test_get_expense_returns_none_for_missing_id(tmp_path):
+    database_path = tmp_path / "tracker.db"
+    initialize_schema(database_path)
+
+    assert get_expense(database_path, 999) is None
+
+
+def test_list_expenses_orders_by_date_then_id(tmp_path):
+    database_path = tmp_path / "tracker.db"
+    initialize_schema(database_path)
+    first_id = insert_expense(
+        database_path, Expense("1.00", "a", "Later", "2026-11-21")
+    )
+    second_id = insert_expense(
+        database_path, Expense("2.00", "b", "Earlier", "2026-11-19")
+    )
+    third_id = insert_expense(
+        database_path, Expense("3.00", "c", "Same date", "2026-11-19")
+    )
+
+    expenses = list_expenses(database_path)
+
+    assert [expense.id for expense in expenses] == [second_id, third_id, first_id]
+
+
+def test_list_expenses_returns_empty_list_for_empty_table(tmp_path):
+    database_path = tmp_path / "tracker.db"
+    initialize_schema(database_path)
+
+    assert list_expenses(database_path) == []

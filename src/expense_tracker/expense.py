@@ -4,7 +4,12 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from expense_tracker.utils import parse_amount_to_cents, parse_iso_date, validate_category
+from expense_tracker.utils import (
+    format_cents,
+    parse_amount_to_cents,
+    parse_iso_date,
+    validate_category,
+)
 
 
 @dataclass
@@ -15,6 +20,7 @@ class Expense:
     category: str
     description: str
     date: date
+    id: int | None = None
 
     def __post_init__(self) -> None:
         parse_amount_to_cents(self.amount)
@@ -31,3 +37,8 @@ class Expense:
     def date_iso(self) -> str:
         """Return the date in ISO ``YYYY-MM-DD`` form."""
         return self.date.isoformat()
+
+    @property
+    def amount_formatted(self) -> str:
+        """Return the amount formatted for presentation."""
+        return format_cents(self.amount_cents)

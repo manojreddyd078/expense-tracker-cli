@@ -7,6 +7,11 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 CENT = Decimal("0.01")
 
 
+def format_cents(cents: int) -> str:
+    """Format integer cents as a presentation value such as ``$12.34``."""
+    return f"${Decimal(cents) / 100:,.2f}"
+
+
 def parse_amount_to_cents(value: Decimal | str | int | float) -> int:
     """Validate a positive amount and convert it exactly to integer cents."""
     if isinstance(value, bool):
