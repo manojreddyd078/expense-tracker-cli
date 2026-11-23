@@ -4,7 +4,13 @@ from decimal import Decimal
 import pytest
 
 from expense_tracker.database import database_connection, initialize_schema
-from expense_tracker.database import get_expense, insert_expense, list_expenses
+from expense_tracker.database import (
+    delete_expense,
+    get_expense,
+    insert_expense,
+    list_expenses,
+    update_expense,
+)
 from expense_tracker.expense import Expense
 
 
@@ -154,3 +160,56 @@ def test_list_expenses_returns_empty_list_for_empty_table(tmp_path):
     initialize_schema(database_path)
 
     assert list_expenses(database_path) == []
+
+
+def test_update_expense_changes_only_requested_fields(tmp_path):
+    database_path = tmp_path / "tracker.db"
+    initialize_schema(database_path)
+    expense_id = insert_expense(
+        database_path, Expense("10.00", "food", "Lunch", "2026-11-20")
+    )
+
+    assert update_expense(database_path, expense_id, amount="12.50", category="travel")
+
+    updated = get_expense(database_path, expense_id)
+    assert updated is not None
+    assert updated.amount_cents == 1250
+    assert updated.category == "travel"
+    assert updated.description == "Lunch"
+    assert updated.date_iso == "2026-11-20"
+
+
+def test_invalid_update_leaves_record_unchanged(tmp_path):
+    database_path = tmp_path / "tracker.db"
+    initialize_schema(database_path)
+    expense_id = insert_expense(
+        database_path, Expense("10.00", "food", "Lunch", "2026-11-20")
+    )
+
+    with pytest.raises(ValueError):
+        update_expense(database_path, expense_id, amount="0.00", category="travel")
+
+    unchanged = get_expense(database_path, expense_id)
+    assert unchanged is not None
+    assert unchanged.amount_cents == 1000
+    assert unchanged.category == "food"
+
+
+def test_update_and_delete_nonexistent_ids_report_false(tmp_path):
+    database_path = tmp_path / "tracker.db"
+    initialize_schema(database_path)
+
+    assert update_expense(database_path, 404, category="missing") is False
+    assert delete_expense(database_path, 404) is False
+
+
+def test_delete_expense_removes_record_and_reports_result(tmp_path):
+    database_path = tmp_path / "tracker.db"
+    initialize_schema(database_path)
+    expense_id = insert_expense(
+        database_path, Expense("5.00", "food", "Snack", "2026-11-20")
+    )
+
+    assert delete_expense(database_path, expense_id) is True
+    assert get_expense(database_path, expense_id) is None
+    assert delete_expense(database_path, expense_id) is False

@@ -102,3 +102,64 @@ def list_expenses(path: str | Path) -> list[Expense]:
             "FROM expenses ORDER BY date ASC, id ASC"
         ).fetchall()
     return [_expense_from_row(row) for row in rows]
+
+
+def update_expense(
+    path: str | Path,
+    expense_id: int,
+    *,
+    amount: object = None,
+    category: str | None = None,
+    description: str | None = None,
+    date: object = None,
+) -> bool:
+    """Update supplied expense fields and return whether a row was changed."""
+    with database_connection(path) as connection:
+        row = connection.execute(
+            "SELECT id, amount_cents, category, description, date "
+            "FROM expenses WHERE id = ?",
+            (expense_id,),
+        ).fetchone()
+        if row is None:
+            return False
+
+        current = _expense_from_row(row)
+        updated = Expense(
+            amount=current.amount if amount is None else amount,
+            category=current.category if category is None else category,
+            description=current.description if description is None else description,
+            date=current.date if date is None else date,
+            id=expense_id,
+        )
+        try:
+            cursor = connection.execute(
+                "UPDATE expenses SET amount_cents = ?, category = ?, "
+                "description = ?, date = ? WHERE id = ?",
+                (
+                    updated.amount_cents,
+                    updated.category,
+                    updated.description,
+                    updated.date_iso,
+                    expense_id,
+                ),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
+        except sqlite3.Error:
+            connection.rollback()
+            raise
+
+
+def delete_expense(path: str | Path, expense_id: int) -> bool:
+    """Delete an expense by ID and return whether a row was affected."""
+    with database_connection(path) as connection:
+        try:
+            cursor = connection.execute(
+                "DELETE FROM expenses WHERE id = ?",
+                (expense_id,),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
+        except sqlite3.Error:
+            connection.rollback()
+            raise
