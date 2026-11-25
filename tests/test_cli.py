@@ -59,3 +59,12 @@ def test_cli_invalid_add_returns_nonzero_without_record(tmp_path, capsys):
 
     assert result != 0
     assert "Error:" in capsys.readouterr().err
+
+
+def test_categories_command_lists_supported_values(capsys, tmp_path):
+    assert main(["--db", str(tmp_path / "unused.db"), "categories"]) == 0
+
+    output = capsys.readouterr().out
+    assert "food" in output
+    assert "transport" in output
+    assert not (tmp_path / "unused.db").exists()

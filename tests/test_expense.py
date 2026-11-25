@@ -5,6 +5,7 @@ import pytest
 
 from expense_tracker.expense import Expense
 from expense_tracker.utils import parse_amount_to_cents, parse_iso_date
+from expense_tracker.utils import validate_category
 
 
 def test_valid_expense_record_and_precise_cents():
@@ -36,3 +37,13 @@ def test_empty_category_is_rejected():
 def test_amount_with_more_than_two_decimal_places_is_rejected():
     with pytest.raises(ValueError):
         parse_amount_to_cents("1.001")
+
+
+def test_category_is_normalized_case_insensitively():
+    assert validate_category("  FoOd ") == "food"
+    assert Expense("1.00", "TRANSPORT", "Bus", "2026-11-18").category == "transport"
+
+
+def test_unsupported_category_is_rejected():
+    with pytest.raises(ValueError, match="unsupported category"):
+        validate_category("vacation")

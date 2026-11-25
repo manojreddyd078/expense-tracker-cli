@@ -98,7 +98,7 @@ def test_invalid_expense_is_rejected_before_database_write(tmp_path):
 def test_insert_database_error_rolls_back(tmp_path):
     database_path = tmp_path / "tracker.db"
     initialize_schema(database_path)
-    expense = Expense("2.50", "test", "Rollback", "2026-11-19")
+    expense = Expense("2.50", "other", "Rollback", "2026-11-19")
 
     with sqlite3.connect(database_path) as connection:
         connection.execute(
@@ -141,13 +141,13 @@ def test_list_expenses_orders_by_date_then_id(tmp_path):
     database_path = tmp_path / "tracker.db"
     initialize_schema(database_path)
     first_id = insert_expense(
-        database_path, Expense("1.00", "a", "Later", "2026-11-21")
+        database_path, Expense("1.00", "food", "Later", "2026-11-21")
     )
     second_id = insert_expense(
-        database_path, Expense("2.00", "b", "Earlier", "2026-11-19")
+        database_path, Expense("2.00", "transport", "Earlier", "2026-11-19")
     )
     third_id = insert_expense(
-        database_path, Expense("3.00", "c", "Same date", "2026-11-19")
+        database_path, Expense("3.00", "housing", "Same date", "2026-11-19")
     )
 
     expenses = list_expenses(database_path)

@@ -3,6 +3,8 @@
 from datetime import date
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
+from expense_tracker.categories import SUPPORTED_CATEGORIES
+
 
 CENT = Decimal("0.01")
 
@@ -40,7 +42,11 @@ def parse_iso_date(value: date | str) -> date:
 
 
 def validate_category(value: str) -> str:
-    """Return a nonempty, trimmed category."""
+    """Return a normalized supported category."""
     if not isinstance(value, str) or not value.strip():
         raise ValueError("category must not be empty")
-    return value.strip()
+    category = value.strip().casefold()
+    if category not in SUPPORTED_CATEGORIES:
+        supported = ", ".join(SUPPORTED_CATEGORIES)
+        raise ValueError(f"unsupported category '{value.strip()}'; choose from: {supported}")
+    return category

@@ -14,6 +14,7 @@ from expense_tracker.database import (
     list_expenses,
     update_expense,
 )
+from expense_tracker.categories import SUPPORTED_CATEGORIES
 from expense_tracker.expense import Expense
 
 DB_ENV_VAR = "EXPENSE_TRACKER_DB"
@@ -40,6 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     update.add_argument("--date")
     delete = commands.add_parser("delete", help="Delete an expense")
     delete.add_argument("id", type=int)
+    commands.add_parser("categories", help="List supported categories")
     return parser
 
 
@@ -56,6 +58,11 @@ def _display(expense: Expense) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.command == "categories":
+        print("Supported categories:")
+        for category in SUPPORTED_CATEGORIES:
+            print(f"- {category}")
+        return 0
     database_path = resolve_db_path(args.db)
     initialize_schema(database_path)
     try:
