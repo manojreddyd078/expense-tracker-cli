@@ -169,7 +169,7 @@ def test_update_expense_changes_only_requested_fields(tmp_path):
         database_path, Expense("10.00", "food", "Lunch", "2026-11-20")
     )
 
-    assert update_expense(database_path, expense_id, amount="12.50", category="travel")
+    assert update_expense(database_path, expense_id, amount="12.50", category="transport")
 
     updated = get_expense(database_path, expense_id)
     assert updated is not None
@@ -187,7 +187,7 @@ def test_invalid_update_leaves_record_unchanged(tmp_path):
     )
 
     with pytest.raises(ValueError):
-        update_expense(database_path, expense_id, amount="0.00", category="travel")
+        update_expense(database_path, expense_id, amount="0.00", category="transport")
 
     unchanged = get_expense(database_path, expense_id)
     assert unchanged is not None
@@ -199,7 +199,7 @@ def test_update_and_delete_nonexistent_ids_report_false(tmp_path):
     database_path = tmp_path / "tracker.db"
     initialize_schema(database_path)
 
-    assert update_expense(database_path, 404, category="missing") is False
+    assert update_expense(database_path, 404, category="food") is False
     assert delete_expense(database_path, 404) is False
 
 
@@ -213,3 +213,49 @@ def test_delete_expense_removes_record_and_reports_result(tmp_path):
     assert delete_expense(database_path, expense_id) is True
     assert get_expense(database_path, expense_id) is None
     assert delete_expense(database_path, expense_id) is False
+
+
+def test_list_expenses_filters_by_category(tmp_path):
+    database_path = tmp_path / "tracker.db"
+    initialize_schema(database_path)
+    insert_expense(database_path, Expense("1.00", "food", "Meal", "2026-11-20"))
+    insert_expense(database_path, Expense("2.00", "transport", "Bus", "2026-11-19"))
+
+    expenses = list_expenses(database_path, category="FOOD")
+
+    assert [(item.category, item.description) for item in expenses] == [("food", "Meal")]
+
+
+def test_list_expenses_filters_by_date_bounds_inclusively(tmp_path):
+    database_path = tmp_path / "tracker.db"
+    initialize_schema(database_path)
+    insert_expense(database_path, Expense("1.00", "food", "Before", "2026-11-18"))
+    insert_expense(database_path, Expense("2.00", "food", "Start", "2026-11-19"))
+    insert_expense(database_path, Expense("3.00", "food", "End", "2026-11-21"))
+    insert_expense(database_path, Expense("4.00", "food", "After", "2026-11-22"))
+
+    expenses = list_expenses(database_path, start_date="2026-11-19", end_date="2026-11-21")
+
+    assert [item.description for item in expenses] == ["Start", "End"]
+
+
+def test_list_expenses_combines_filters_and_preserves_order(tmp_path):
+    database_path = tmp_path / "tracker.db"
+    initialize_schema(database_path)
+    first = insert_expense(database_path, Expense("1.00", "food", "Later", "2026-11-20"))
+    insert_expense(database_path, Expense("2.00", "transport", "Other", "2026-11-19"))
+    second = insert_expense(database_path, Expense("3.00", "food", "Earlier", "2026-11-19"))
+
+    expenses = list_expenses(database_path, category="food", start_date="2026-11-19", end_date="2026-11-20")
+
+    assert [item.id for item in expenses] == [second, first]
+
+
+def test_list_expenses_rejects_reversed_or_malformed_dates(tmp_path):
+    database_path = tmp_path / "tracker.db"
+    initialize_schema(database_path)
+
+    with pytest.raises(ValueError):
+        list_expenses(database_path, start_date="2026-11-22", end_date="2026-11-21")
+    with pytest.raises(ValueError):
+        list_expenses(database_path, start_date="not-a-date")

@@ -30,7 +30,10 @@ def build_parser() -> argparse.ArgumentParser:
     add.add_argument("category")
     add.add_argument("date")
     add.add_argument("--description", default="")
-    commands.add_parser("list", help="List expenses")
+    listing = commands.add_parser("list", help="List expenses")
+    listing.add_argument("--category")
+    listing.add_argument("--start-date")
+    listing.add_argument("--end-date")
     show = commands.add_parser("show", help="Show one expense")
     show.add_argument("id", type=int)
     update = commands.add_parser("update", help="Update an expense")
@@ -70,7 +73,12 @@ def main(argv: list[str] | None = None) -> int:
             expense_id = insert_expense(database_path, Expense(args.amount, args.category, args.description, args.date))
             print(f"Added expense #{expense_id}.")
         elif args.command == "list":
-            for expense in list_expenses(database_path):
+            for expense in list_expenses(
+                database_path,
+                category=args.category,
+                start_date=args.start_date,
+                end_date=args.end_date,
+            ):
                 _display(expense)
         elif args.command == "show":
             expense = get_expense(database_path, args.id)

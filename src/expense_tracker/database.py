@@ -7,6 +7,7 @@ from collections.abc import Iterator
 from decimal import Decimal
 
 from expense_tracker.expense import Expense
+from expense_tracker.utils import parse_iso_date, validate_category
 
 
 SCHEMA_SQL = """
@@ -94,12 +95,37 @@ def get_expense(path: str | Path, expense_id: int) -> Expense | None:
     return None if row is None else _expense_from_row(row)
 
 
-def list_expenses(path: str | Path) -> list[Expense]:
-    """Return all expenses ordered by ISO date, then ID."""
+def list_expenses(
+    path: str | Path,
+    *,
+    category: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> list[Expense]:
+    """Return filtered expenses ordered by ISO date, then ID."""
+    normalized_category = validate_category(category) if category is not None else None
+    start = parse_iso_date(start_date) if start_date is not None else None
+    end = parse_iso_date(end_date) if end_date is not None else None
+    if start is not None and end is not None and start > end:
+        raise ValueError("start date cannot be after end date")
+
+    clauses = []
+    parameters: list[str] = []
+    if normalized_category is not None:
+        clauses.append("category = ?")
+        parameters.append(normalized_category)
+    if start is not None:
+        clauses.append("date >= ?")
+        parameters.append(start.isoformat())
+    if end is not None:
+        clauses.append("date <= ?")
+        parameters.append(end.isoformat())
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
     with database_connection(path) as connection:
         rows = connection.execute(
             "SELECT id, amount_cents, category, description, date "
-            "FROM expenses ORDER BY date ASC, id ASC"
+            f"FROM expenses{where} ORDER BY date ASC, id ASC",
+            parameters,
         ).fetchall()
     return [_expense_from_row(row) for row in rows]
 
